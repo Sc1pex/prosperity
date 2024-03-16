@@ -191,10 +191,11 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
                              "STARFRUIT at", best_bid)
                 orders.append(Order("STARFRUIT", best_bid, -sell_amt))
 
-                if sell_amt == amt:
-                    del data.long_at[price]
-                else:
-                    data.long_at[price] -= sell_amt
+                if data.long_at.get(price) != None:
+                    if sell_amt == amt:
+                        del data.long_at[price]
+                    else:
+                        data.long_at[price] -= sell_amt
                 break
 
             # Sell at max loss
@@ -204,10 +205,11 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
                              "STARFRUIT at", best_bid)
                 orders.append(Order("STARFRUIT", best_bid, -sell_amt))
 
-                if sell_amt == amt:
-                    del data.long_at[price]
-                else:
-                    data.long_at[price] -= sell_amt
+                if data.long_at.get(price) != None:
+                    if sell_amt == amt:
+                        del data.long_at[price]
+                    else:
+                        data.long_at[price] -= sell_amt
                 break
 
     if len(data.short_at) > 0:
@@ -220,10 +222,11 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
                 logger.print("Buying", sell_amt, "STARFRUIT at", best_ask)
                 orders.append(Order("STARFRUIT", best_ask, sell_amt))
 
-                if sell_amt == amt:
-                    del data.short_at[price]
-                else:
-                    data.short_at[price] -= sell_amt
+                if data.short_at.get(price) != None:
+                    if sell_amt == amt:
+                        del data.short_at[price]
+                    else:
+                        data.short_at[price] -= sell_amt
                 break
 
             # Buy at max loss
@@ -232,10 +235,11 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
                 logger.print("Buying", sell_amt, "STARFRUIT at", best_ask)
                 orders.append(Order("STARFRUIT", best_ask, sell_amt))
 
-                if sell_amt == amt:
-                    del data.short_at[price]
-                else:
-                    data.short_at[price] -= sell_amt
+                if data.short_at.get(price) != None:
+                    if sell_amt == amt:
+                        del data.short_at[price]
+                    else:
+                        data.short_at[price] -= sell_amt
                 break
 
     diffs = []
