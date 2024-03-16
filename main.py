@@ -118,8 +118,8 @@ def max_sell_amt(position: int, position_limit: int, wanted_amt: int) -> int:
 def amethyst(state: TradingState) -> List[Order]:
     orders = []
     order_depth: OrderDepth = state.order_depths["AMETHYSTS"]
-    buy_price = 9_999
-    sell_price = 10_001
+    buy_price = 9_998
+    sell_price = 10_002
     position_limit = 20
 
     if len(order_depth.sell_orders) != 0:
