@@ -115,6 +115,44 @@ def max_sell_amt(position: int, position_limit: int, wanted_amt: int) -> int:
     return min(position + position_limit, wanted_amt)
 
 
+
+
+
+######
+######
+######
+#  AMETHYST  DATA  #
+######
+######
+######
+
+class AmethystData:
+    def __init__(self) -> None:
+        self.last_prices: List[float] = []
+        self.long_at: dict[int, int] = {}
+        self.short_at: dict[int, int] = {}
+
+    def to_str(self) -> str:
+        return jsonpickle.encode(self)
+
+    def update_last_prices(self, price: float) -> None:
+        next_prices = []
+        if len(self.last_prices) > 20:
+            next_prices = self.last_prices[1:] + [price]
+        else:
+            next_prices = self.last_prices + [price]
+
+        self.last_prices = next_prices
+
+
+
+######
+######
+######
+#  AMETHYST  #
+######
+######
+######
 def amethyst(state: TradingState) -> List[Order]:
     orders = []
     order_depth: OrderDepth = state.order_depths["AMETHYSTS"]
@@ -148,6 +186,14 @@ def amethyst(state: TradingState) -> List[Order]:
     return orders
 
 
+######
+######
+######
+#  STARFRUIT  DATA  #
+######
+######
+######
+
 class StarfruitData:
     def __init__(self) -> None:
         self.last_prices: List[float] = []
@@ -166,6 +212,14 @@ class StarfruitData:
 
         self.last_prices = next_prices
 
+
+######
+######
+######
+#  STARFRUIT  #
+######
+######
+######
 
 def starfruit(state: TradingState) -> tuple[List[Order], str]:
     orders = []
