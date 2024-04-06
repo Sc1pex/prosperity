@@ -98,7 +98,8 @@ class Trader:
         for product in state.order_depths:
 
             if (product == "AMETHYSTS"):
-                result[product] = amethyst(state)
+                pass
+                # result[product] = amethyst(state)
             elif (product == "STARFRUIT"):
                 result[product], traderData = starfruit(state)
 
@@ -165,7 +166,7 @@ def amethyst(state: TradingState) -> List[Order]:
             amt = max_buy_amt(
                 position, position_limit, best_ask_amount)
 
-            logger.print("Buying", amt, "AMETHYSTS at", best_ask)
+            # logger.print("Buying", amt, "amethysts at", best_ask)
             orders.append(Order("AMETHYSTS", best_ask, amt))
 
     if len(order_depth.buy_orders) != 0:
@@ -176,7 +177,7 @@ def amethyst(state: TradingState) -> List[Order]:
             amt = max_sell_amt(
                 position, position_limit, best_bid_amount)
 
-            logger.print("Selling", amt, "AMETHYSTS at", best_bid)
+            # logger.print("Selling", amt, "amethysts at", best_bid)
             orders.append(Order("AMETHYSTS", best_bid, -amt))
 
     return orders
@@ -205,12 +206,12 @@ class StarfruitData:
     def update_last_prices(self, ask: float, bid: float) -> None:
         next_bid_prices = []
         next_ask_prices = []
-        if len(self.last_prices) > self.PRICE_AMT:
-            next_bid_prices = self.last_prices[1:] + [bid]
-            next_ask_prices = self.last_prices[1:] + [ask]
+        if len(self.last_bid_prices) > self.PRICE_AMT:
+            next_bid_prices = self.last_bid_prices[1:] + [bid]
+            next_ask_prices = self.last_ask_prices[1:] + [ask]
         else:
-            next_bid_prices = self.last_prices + [bid]
-            next_ask_prices = self.last_prices + [ask]
+            next_bid_prices = self.last_bid_prices + [bid]
+            next_ask_prices = self.last_ask_prices + [ask]
 
         self.last_bid_prices = next_bid_prices
         self.last_ask_prices = next_ask_prices
@@ -245,17 +246,19 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
         asks = list(order_depth.sell_orders.items())
         asks.sort(key=lambda x: x[0], reverse=True)
         long_at = list(data.long_at.items())
-        long_at.sort(key=lambda x: x[0])
+        long_at.sort(key=lambda x: int(x[0]))
+        # logger.print("asks", asks)
+        # logger.print("long_at", long_at)
 
-        while len(asks) > 0 and len(long_at) > 0 and asks[0][0] >= data.long_at[0] + min_profit:
+        while len(asks) > 0 and len(long_at) > 0 and asks[0][0] >= int(long_at[0][0]) + min_profit:
             amt_sold = max_sell_amt(position, position_limit, asks[0][1])
 
-            logger.print("Selling", amt_sold, "STARFRUIT at", asks[0][0])
+            # logger.print("Selling", amt_sold, "starfruit at", asks[0][0])
             orders.append(Order("STARFRUIT", asks[0][0], -amt_sold))
             position -= amt_sold
 
             if amt_sold == asks[0][1]:
-                data.long_at[asks[0][0]] -= asks[0][1]
+                data.long_at[long_at[0][0]] -= asks[0][1]
                 asks.pop(0)
             if amt_sold == long_at[0][1]:
                 data.long_at.pop(long_at[0][0])
@@ -268,41 +271,43 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
         bids = list(order_depth.buy_orders.items())
         bids.sort(key=lambda x: x[0])
         short_at = list(data.long_at.items())
-        short_at.sort(key=lambda x: x[0], reverse=True)
+        short_at.sort(key=lambda x: int(x[0]), reverse=True)
 
-        while len(bids) > 0 and len(short_at) > 0 and bids[0][0] <= data.short_at[0] - min_profit:
+        while len(bids) > 0 and len(short_at) > 0 and bids[0][0] <= int(short_at[0][0]) - min_profit:
             amt_buy = max_buy_amt(position, position_limit, bids[0][1])
 
-            logger.print("Buying", amt_buy, "STARFRUIT at", bids[0][0])
+            # logger.print("Buying", amt_buy, "starfruit at", bids[0][0])
             orders.append(Order("STARFRUIT", bids[0][0], amt_buy))
             position += amt_buy
 
             if amt_buy == bids[0][1]:
-                data.short_at[bids[0][0]] -= bids[0][1]
+                data.short_at[short_at[0]] -= bids[0][1]
                 bids.pop(0)
             if amt_buy == short_at[0][1]:
-                data.short_at.pop(short_at[0][0])
+                data.short_at.pop(int(short_at[0][0]))
                 short_at.pop(0)
             if position == position_limit:
                 break
 
-    avg_ask = sum(data.last_ask_prices) / len(data.last_ask_prices)
-    if avg_ask > best_ask:
-        amt_sell = max_sell_amt(position, position_limit, best_ask)
+    if len(data.last_ask_prices) > 0:
+        avg_ask = sum(data.last_ask_prices) / len(data.last_ask_prices)
+        if avg_ask > best_ask:
+            amt_sell = max_sell_amt(position, position_limit, best_ask)
 
-        logger.print("Selling", amt_sell, "STARFRUIT at", best_ask)
-        orders.append(Order("STARFRUIT", best_ask, -amt_sell))
-        position -= amt_sell
-        data.short_at[best_ask] = amt_sell
+            # logger.print("Selling", amt_sell, "starfruit at", best_ask)
+            orders.append(Order("STARFRUIT", best_ask, -amt_sell))
+            position -= amt_sell
+            data.short_at[best_ask] = amt_sell
 
-    avg_bid = sum(data.last_bid_prices) / len(data.last_bid_prices)
-    if avg_bid < best_bid:
-        amt_buy = max_buy_amt(position, position_limit, best_bid)
+    if len(data.last_bid_prices) > 0:
+        avg_bid = sum(data.last_bid_prices) / len(data.last_bid_prices)
+        if avg_bid < best_bid:
+            amt_buy = max_buy_amt(position, position_limit, best_bid)
 
-        logger.print("Buying", amt_buy, "STARFRUIT at", best_bid)
-        orders.append(Order("STARFRUIT", best_bid, amt_buy))
-        position += amt_buy
-        data.long_at[best_bid] = amt_buy
+            # logger.print("Buying", amt_buy, "starfruit at", best_bid)
+            orders.append(Order("STARFRUIT", best_bid, amt_buy))
+            position += amt_buy
+            data.long_at[best_bid] = amt_buy
 
     data.update_last_prices(best_ask, best_bid)
 
