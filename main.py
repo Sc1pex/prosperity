@@ -194,21 +194,26 @@ class StarfruitData:
     PRICE_AMT = 10
 
     def __init__(self) -> None:
-        self.last_prices: List[float] = []
+        self.last_bid_prices: List[float] = []
+        self.last_ask_prices: List[float] = []
         self.long_at: dict[int, int] = {}
         self.short_at: dict[int, int] = {}
 
     def to_str(self) -> str:
         return jsonpickle.encode(self)
 
-    def update_last_prices(self, price: float) -> None:
-        next_prices = []
+    def update_last_prices(self, ask: float, bid: float) -> None:
+        next_bid_prices = []
+        next_ask_prices = []
         if len(self.last_prices) > self.PRICE_AMT:
-            next_prices = self.last_prices[1:] + [price]
+            next_bid_prices = self.last_prices[1:] + [bid]
+            next_ask_prices = self.last_prices[1:] + [ask]
         else:
-            next_prices = self.last_prices + [price]
+            next_bid_prices = self.last_prices + [bid]
+            next_ask_prices = self.last_prices + [ask]
 
-        self.last_prices = next_prices
+        self.last_bid_prices = next_bid_prices
+        self.last_ask_prices = next_ask_prices
 
 
 ######
@@ -222,6 +227,7 @@ class StarfruitData:
 def starfruit(state: TradingState) -> tuple[List[Order], str]:
     orders = []
     position_limit = 20
+    position = state.position.get("STARFRUIT", 0)
     order_depth: OrderDepth = state.order_depths["STARFRUIT"]
 
     data = StarfruitData()
@@ -229,113 +235,75 @@ def starfruit(state: TradingState) -> tuple[List[Order], str]:
         data = jsonpickle.decode(state.traderData)
 
     min_profit = 4
-    max_loss = 3
+    # max_loss = 3
 
+    best_ask, _ = list(order_depth.sell_orders.items())[0]
+    best_bid, _ = list(order_depth.buy_orders.items())[0]
+
+    # Check if we can sell any owned STARFRUIT making at leas min_profit
     if len(data.long_at) > 0:
-        best_bid = max(order_depth.buy_orders)
-        best_bid_amt = order_depth.buy_orders[best_bid]
-        for p, amt in data.long_at.items():
-            price = int(p)
-            # Sell at a profit
-            if best_bid - price >= min_profit:
-                sell_amt = min(amt, best_bid_amt)
-                logger.print("Selling (gain)", sell_amt,
-                             "STARFRUIT at", best_bid)
-                orders.append(Order("STARFRUIT", best_bid, -sell_amt))
+        asks = list(order_depth.sell_orders.items())
+        asks.sort(key=lambda x: x[0], reverse=True)
+        long_at = list(data.long_at.items())
+        long_at.sort(key=lambda x: x[0])
 
-                if data.long_at.get(price) != None:
-                    if sell_amt == amt:
-                        del data.long_at[price]
-                    else:
-                        data.long_at[price] -= sell_amt
+        while len(asks) > 0 and len(long_at) > 0 and asks[0][0] >= data.long_at[0] + min_profit:
+            amt_sold = max_sell_amt(position, position_limit, asks[0][1])
+
+            logger.print("Selling", amt_sold, "STARFRUIT at", asks[0][0])
+            orders.append(Order("STARFRUIT", asks[0][0], -amt_sold))
+            position -= amt_sold
+
+            if amt_sold == asks[0][1]:
+                data.long_at[asks[0][0]] -= asks[0][1]
+                asks.pop(0)
+            if amt_sold == long_at[0][1]:
+                data.long_at.pop(long_at[0][0])
+                long_at.pop(0)
+            if position == -position_limit:
                 break
 
-            # Sell at max loss
-            if price - best_bid >= max_loss:
-                sell_amt = min(amt, best_bid_amt)
-                logger.print("Selling (loss)", sell_amt,
-                             "STARFRUIT at", best_bid)
-                orders.append(Order("STARFRUIT", best_bid, -sell_amt))
-
-                if data.long_at.get(price) != None:
-                    if sell_amt == amt:
-                        del data.long_at[price]
-                    else:
-                        data.long_at[price] -= sell_amt
-                break
-
+    # Check if we can buy any shorted STARFRUIT making at least min_profit
     if len(data.short_at) > 0:
-        best_ask = min(order_depth.sell_orders)
-        best_ask_amt = -order_depth.sell_orders[best_ask]
-        for price, amt in data.short_at.items():
-            # Buy at a profit
-            if price - best_ask >= min_profit:
-                sell_amt = min(amt, best_ask_amt)
-                logger.print("Buying", sell_amt, "STARFRUIT at", best_ask)
-                orders.append(Order("STARFRUIT", best_ask, sell_amt))
+        bids = list(order_depth.buy_orders.items())
+        bids.sort(key=lambda x: x[0])
+        short_at = list(data.long_at.items())
+        short_at.sort(key=lambda x: x[0], reverse=True)
 
-                if data.short_at.get(price) != None:
-                    if sell_amt == amt:
-                        del data.short_at[price]
-                    else:
-                        data.short_at[price] -= sell_amt
+        while len(bids) > 0 and len(short_at) > 0 and bids[0][0] <= data.short_at[0] - min_profit:
+            amt_buy = max_buy_amt(position, position_limit, bids[0][1])
+
+            logger.print("Buying", amt_buy, "STARFRUIT at", bids[0][0])
+            orders.append(Order("STARFRUIT", bids[0][0], amt_buy))
+            position += amt_buy
+
+            if amt_buy == bids[0][1]:
+                data.short_at[bids[0][0]] -= bids[0][1]
+                bids.pop(0)
+            if amt_buy == short_at[0][1]:
+                data.short_at.pop(short_at[0][0])
+                short_at.pop(0)
+            if position == position_limit:
                 break
 
-            # Buy at max loss
-            if best_ask - price >= max_loss:
-                sell_amt = min(amt, best_ask_amt)
-                logger.print("Buying", sell_amt, "STARFRUIT at", best_ask)
-                orders.append(Order("STARFRUIT", best_ask, sell_amt))
+    avg_ask = sum(data.last_ask_prices) / len(data.last_ask_prices)
+    if avg_ask > best_ask:
+        amt_sell = max_sell_amt(position, position_limit, best_ask)
 
-                if data.short_at.get(price) != None:
-                    if sell_amt == amt:
-                        del data.short_at[price]
-                    else:
-                        data.short_at[price] -= sell_amt
-                break
+        logger.print("Selling", amt_sell, "STARFRUIT at", best_ask)
+        orders.append(Order("STARFRUIT", best_ask, -amt_sell))
+        position -= amt_sell
+        data.short_at[best_ask] = amt_sell
 
-    diffs = []
-    for i in range(1, len(data.last_prices)):
-        diffs.append(data.last_prices[i] - data.last_prices[i-1])
-    up, down = 0, 0
-    for diff in diffs:
-        if diff > 0:
-            up += 1
-        else:
-            down += 1
-    logger.print("Prices", data.last_prices)
-    logger.print("Diffs", diffs)
+    avg_bid = sum(data.last_bid_prices) / len(data.last_bid_prices)
+    if avg_bid < best_bid:
+        amt_buy = max_buy_amt(position, position_limit, best_bid)
 
-    if up > down:
-        logger.print("Market is going up. Buy")
-        best_ask = min(order_depth.sell_orders)
-        best_ask_amount = -order_depth.sell_orders[best_ask]
-        position = state.position.get("STARFRUIT", 0)
-        amt = max_buy_amt(
-            position, position_limit, best_ask_amount)
-        if amt > 0:
-            logger.print("Buying", amt, "STARFRUIT at", best_ask)
-            orders.append(Order("STARFRUIT", best_ask, amt))
+        logger.print("Buying", amt_buy, "STARFRUIT at", best_bid)
+        orders.append(Order("STARFRUIT", best_bid, amt_buy))
+        position += amt_buy
+        data.long_at[best_bid] = amt_buy
 
-            current_amt = data.long_at.get(best_ask, 0)
-            data.long_at[best_ask] = current_amt + amt
-
-    elif down < up:
-        logger.print("Market is going down. Sell")
-        best_ask = max(order_depth.buy_orders)
-        best_ask_amount = order_depth.buy_orders[best_ask]
-        position = state.position.get("STARFRUIT", 0)
-        amt = max_sell_amt(
-            position, position_limit, best_ask_amount)
-        if amt > 0:
-            logger.print("Selling", amt, "STARFRUIT at", best_ask)
-            orders.append(Order("STARFRUIT", best_ask, -amt))
-
-            current_amt = data.short_at.get(best_ask, 0)
-            data.short_at[best_ask] = current_amt + amt
-
-    midprice = (max(order_depth.buy_orders) + min(order_depth.sell_orders)) / 2
-    data.update_last_prices(midprice)
-    logger.print("Prices", data.last_prices, "  Midprice", midprice)
+    data.update_last_prices(best_ask, best_bid)
 
     return orders, jsonpickle.encode(data)
