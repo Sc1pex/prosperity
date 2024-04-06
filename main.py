@@ -115,9 +115,6 @@ def max_sell_amt(position: int, position_limit: int, wanted_amt: int) -> int:
     return min(position + position_limit, wanted_amt)
 
 
-
-
-
 ######
 ######
 ######
@@ -143,7 +140,6 @@ class AmethystData:
             next_prices = self.last_prices + [price]
 
         self.last_prices = next_prices
-
 
 
 ######
@@ -195,6 +191,8 @@ def amethyst(state: TradingState) -> List[Order]:
 ######
 
 class StarfruitData:
+    PRICE_AMT = 10
+
     def __init__(self) -> None:
         self.last_prices: List[float] = []
         self.long_at: dict[int, int] = {}
@@ -205,7 +203,7 @@ class StarfruitData:
 
     def update_last_prices(self, price: float) -> None:
         next_prices = []
-        if len(self.last_prices) > 20:
+        if len(self.last_prices) > self.PRICE_AMT:
             next_prices = self.last_prices[1:] + [price]
         else:
             next_prices = self.last_prices + [price]
